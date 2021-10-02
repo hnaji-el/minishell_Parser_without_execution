@@ -1,39 +1,57 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   repl.c                                             :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: hnaji-el <hnaji-el@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2021/09/17 17:02:08 by hnaji-el          #+#    #+#             */
+/*   Updated: 2021/09/27 14:33:58 by hnaji-el         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-#include "../includes/main.h"
 #include "../includes/parser.h"
-#include "../includes/executor.h"
 
-int		main(void)
+int		visitor_vis(t_ast *node);
+
+int	collect_and_check_cmd_line(char **cmd_line)
+{
+	*cmd_line = readline("AnasHamid$ ");
+	if (*cmd_line == NULL)
+	{
+		write(2, "\033[AAnasHamid$ exit\n", 19);
+		exit(0);
+	}
+	if (cmd_line[0][0] == '\0')
+	{
+		free(*cmd_line);
+		return (0);
+	}
+	return (1);
+}
+
+int	main(int argc, char **argv, char **envp)
 {
 	char		*cmd_line;
-	t_lexer		*lexer;
 	t_parser	*parser;
 	t_ast		*ast;
-	int			r;
-	int			exit_status;
 
-/*
- * implement our basic REPL loop
- */
- 	exit_status = 0;
+	(void)argc;
+	(void)argv;
+	(void)envp;
+	signal(SIGINT, sig_handler);
+	signal(SIGQUIT, sig_handler);
 	while (1)
 	{
-		write(2, "minishell$ ", 12); // print prompt string
-		if ((r = get_next_line(0, &cmd_line)) == -1)// read input from stdin
-			exit(EXIT_FAILURE);
-		if (cmd_line[0] == '\0')
-		{
-			free(cmd_line);
+		if (collect_and_check_cmd_line(&cmd_line) == 0)
 			continue ;
-		}
-		if (ft_strncmp(cmd_line, "exit", 5) == 0)
-			break ;
-		lexer = init_lexer(cmd_line, exit_status);
-		parser = init_parser(lexer);
-		ast = parser_parse_compound(parser);
+		add_history(cmd_line);
+		parser = init_lexer_and_parser(cmd_line, g_exit_s);
+		ast = parser_parse(parser);
 		free_parser(parser);
-		exit_status = visitor_visit(ast);
-		free_ast(ast);
+		/* add main function of the executor here */
+		visitor_vis(ast);
+		free_ast_pipeline(ast);
 	}
 	return (0);
 }

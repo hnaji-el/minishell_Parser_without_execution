@@ -1,40 +1,41 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   lexer_collect_id.c                                 :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: hnaji-el <hnaji-el@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2021/09/15 09:36:24 by hnaji-el          #+#    #+#             */
+/*   Updated: 2021/09/23 16:05:51 by hnaji-el         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "../../includes/lexer.h"
-#include "../../includes/main.h"
 
 void	add_to_value(char **value, char *str)
 {
 	char	*fr;
 
 	fr = *value;
-	if (!(*value = ft_strjoin(*value, str)))
+	*value = ft_strjoin(*value, str);
+	if (*value == NULL)
 		put_error(errno);
 	free(fr);
 	free(str);
 }
 
-char	*lexer_collect_double_quotes(t_lexer *lexer)
+int	check_closed_quotes(char *str, int index, char c)
 {
-	char	*value;
+	int		i;
 
-	value = ft_strdup_("");
-	lexer_advance(lexer);
-	while (lexer->cur_char != '"' && lexer->cur_char != '\0')
+	i = index;
+	while (str[i] != '\0')
 	{
-		if (lexer->cur_char == '\\')
-			lexer_collect_escape_char_in_double_q(lexer, &value);
-		else if (lexer->cur_char == '$')
-			lexer_collect_env_variables(lexer, &value);
-		else
-			lexer_collect_simple_chars_in_double_q(lexer, &value);
+		if (str[i] == c)
+			return (1);
+		i++;
 	}
-	if (lexer->cur_char == '\0')
-	{
-		free(value);
-		return (NULL);
-	}
-	lexer_advance(lexer);
-	return (value);
+	return (0);
 }
 
 char	*lexer_collect_single_quotes(t_lexer *lexer)
@@ -44,28 +45,16 @@ char	*lexer_collect_single_quotes(t_lexer *lexer)
 	int		index_f;
 
 	lexer_advance(lexer);
+	if (!check_closed_quotes(lexer->cmd_line, lexer->cur_index, '\''))
+		return (ft_strdup_("'"));
 	index_i = lexer->cur_index;
-	while (lexer->cur_char != '\'' && lexer->cur_char != '\0')
+	while (lexer->cur_char != '\'')
 		lexer_advance(lexer);
 	index_f = lexer->cur_index;
-	if (lexer->cur_char == '\0')
-		return (NULL);
 	lexer_advance(lexer);
-	if ((str = ft_substr(lexer->cmd_line, index_i, index_f - index_i)) == NULL)
+	str = ft_substr(lexer->cmd_line, index_i, index_f - index_i);
+	if (str == NULL)
 		put_error(errno);
-	return (str);
-}
-
-char	*lexer_collect_escape_char(t_lexer *lexer)
-{
-	char	*str;
-
-	lexer_advance(lexer);
-	if (lexer->cur_char == '\0')
-		return (NULL);
-	if ((str = ft_substr(lexer->cmd_line, lexer->cur_index, 1)) == NULL)
-		put_error(errno);
-	lexer_advance(lexer);
 	return (str);
 }
 
@@ -76,12 +65,33 @@ char	*lexer_collect_simple_chars(t_lexer *lexer)
 	int		index_f;
 
 	index_i = lexer->cur_index;
-	while (!special_meaning_chars(lexer->cur_char) && lexer->cur_char != '"' &&
-			lexer->cur_char != '\'' && lexer->cur_char != '\\' &&
-			lexer->cur_char != '$')
+	while (!special_meaning_chars(lexer->cur_char) && lexer->cur_char != '"'
+		&& lexer->cur_char != '\'' && lexer->cur_char != '$')
 		lexer_advance(lexer);
 	index_f = lexer->cur_index;
-	if ((str = ft_substr(lexer->cmd_line, index_i, index_f - index_i)) == NULL)
+	str = ft_substr(lexer->cmd_line, index_i, index_f - index_i);
+	if (str == NULL)
 		put_error(errno);
 	return (str);
+}
+
+t_token	*lexer_collect_id(t_lexer *lexer)
+{
+	char	*value;
+	char	*str;
+
+	value = ft_strdup_("");
+	while (!special_meaning_chars(lexer->cur_char))
+	{
+		if (lexer->cur_char == '"')
+			str = lexer_collect_double_quotes(lexer);
+		else if (lexer->cur_char == '\'')
+			str = lexer_collect_single_quotes(lexer);
+		else if (lexer->cur_char == '$')
+			str = env_vars_and_word_splitting(lexer, ft_strlen(value));
+		else
+			str = lexer_collect_simple_chars(lexer);
+		add_to_value(&value, str);
+	}
+	return (init_token(TOKEN_WORD, value));
 }

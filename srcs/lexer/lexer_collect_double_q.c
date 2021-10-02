@@ -1,16 +1,16 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   lexer_collect_double_q.c                           :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: hnaji-el <hnaji-el@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2021/09/16 10:57:15 by hnaji-el          #+#    #+#             */
+/*   Updated: 2021/09/21 22:16:36 by hnaji-el         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "../../includes/lexer.h"
-#include "../../includes/main.h"
-
-char	*ft_strdup_(char *str)
-{
-	char	*ptr;
-
-	ptr = ft_strdup(str);
-	if (ptr == NULL)
-		put_error(errno);
-	return (ptr);
-}
 
 char	*collect_env_variables(t_lexer *lexer)
 {
@@ -23,7 +23,8 @@ char	*collect_env_variables(t_lexer *lexer)
 	while (lexer->cur_char == '_' || ft_isalnum(lexer->cur_char))
 		lexer_advance(lexer);
 	index_f = lexer->cur_index;
-	if (!(str = ft_substr(lexer->cmd_line, index_i, index_f - index_i)))
+	str = ft_substr(lexer->cmd_line, index_i, index_f - index_i);
+	if (str == NULL)
 		put_error(errno);
 	fr = str;
 	if ((str = getenv(str)) == NULL)
@@ -34,6 +35,17 @@ char	*collect_env_variables(t_lexer *lexer)
 	return (str);
 }
 
+char	*collect_exit_status(t_lexer *lexer)
+{
+	char	*str;
+
+	str = ft_itoa(lexer->exit_status);
+	if (str == NULL)
+		put_error(errno);
+	lexer_advance(lexer);
+	return (str);
+}
+
 void	lexer_collect_env_variables(t_lexer *lexer, char **value)
 {
 	char	*str;
@@ -41,45 +53,22 @@ void	lexer_collect_env_variables(t_lexer *lexer, char **value)
 
 	lexer_advance(lexer);
 	if (lexer->cur_char == '?')
+		str = collect_exit_status(lexer);
+	else if (lexer->cur_char != '_' && !ft_isalpha(lexer->cur_char))
 	{
-		if ((str = ft_itoa(lexer->exit_status)) == NULL)
+		str = ft_substr(lexer->cmd_line, lexer->cur_index - 1, 2);
+		if (str == NULL)
 			put_error(errno);
 		lexer_advance(lexer);
 	}
-	else if (lexer->cur_char != '_' && !ft_isalpha(lexer->cur_char))
-		str = ft_strdup_("$");
 	else
 		str = collect_env_variables(lexer);
 	fr = *value;
-	if (!(*value = ft_strjoin(*value, str)))
+	*value = ft_strjoin(*value, str);
+	if (*value == NULL)
 		put_error(errno);
 	free(str);
 	free(fr);
-}
-
-void	lexer_collect_escape_char_in_double_q(t_lexer *lexer, char **value)
-{
-	char	*str;
-	char	*fr;
-
-	lexer_advance(lexer);
-	if (lexer->cur_char == '\0')
-		return ;
-	if (lexer->cur_char == '\\' || lexer->cur_char == '"' ||
-		lexer->cur_char == '$')
-	{
-		if ((str = ft_substr(lexer->cmd_line, lexer->cur_index, 1)) == NULL)
-			put_error(errno);
-	}
-	else
-		if ((str = ft_substr(lexer->cmd_line, lexer->cur_index - 1, 2)) == NULL)
-			put_error(errno);
-	fr = *value;
-	if (!(*value = ft_strjoin(*value, str)))
-		put_error(errno);
-	free(str);
-	free(fr);
-	lexer_advance(lexer);
 }
 
 void	lexer_collect_simple_chars_in_double_q(t_lexer *lexer, char **value)
@@ -90,17 +79,38 @@ void	lexer_collect_simple_chars_in_double_q(t_lexer *lexer, char **value)
 	int		index_f;
 
 	index_i = lexer->cur_index;
-	while (lexer->cur_char != '"' && lexer->cur_char != '\\' &&
-		lexer->cur_char != '$' && lexer->cur_char != '\0')
+	while (lexer->cur_char != '"' && lexer->cur_char != '\0'
+		&& lexer->cur_char != '$')
 		lexer_advance(lexer);
 	index_f = lexer->cur_index;
 	if (lexer->cur_char == '\0')
 		return ;
-	if (!(str = ft_substr(lexer->cmd_line, index_i, index_f - index_i)))
+	str = ft_substr(lexer->cmd_line, index_i, index_f - index_i);
+	if (str == NULL)
 		put_error(errno);
 	fr = *value;
-	if (!(*value = ft_strjoin(*value, str)))
+	*value = ft_strjoin(*value, str);
+	if (*value == NULL)
 		put_error(errno);
 	free(str);
 	free(fr);
+}
+
+char	*lexer_collect_double_quotes(t_lexer *lexer)
+{
+	char	*value;
+
+	lexer_advance(lexer);
+	if (!check_closed_quotes(lexer->cmd_line, lexer->cur_index, '"'))
+		return (ft_strdup_("\""));
+	value = ft_strdup_("");
+	while (lexer->cur_char != '"')
+	{
+		if (lexer->cur_char == '$')
+			lexer_collect_env_variables(lexer, &value);
+		else
+			lexer_collect_simple_chars_in_double_q(lexer, &value);
+	}
+	lexer_advance(lexer);
+	return (value);
 }

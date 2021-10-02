@@ -1,12 +1,25 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   parser_utils.c                                     :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: hnaji-el <hnaji-el@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2021/09/17 17:16:29 by hnaji-el          #+#    #+#             */
+/*   Updated: 2021/09/24 07:57:50 by hnaji-el         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
 #include "../../includes/parser.h"
-#include "../../includes/main.h"
 
-t_parser	*init_parser(t_lexer *lexer)
+t_parser	*init_lexer_and_parser(char *cmd_line, int exit_s)
 {
+	t_lexer		*lexer;
 	t_parser	*parser;
 
-	if ((parser = (t_parser *)malloc(sizeof(t_parser))) == NULL)
+	lexer = init_lexer(cmd_line, exit_s);
+	parser = (t_parser *)malloc(sizeof(t_parser));
+	if (parser == NULL)
 		put_error(errno);
 	parser->lexer = lexer;
 	parser->cur_token = lexer_get_next_token(lexer);
@@ -14,7 +27,7 @@ t_parser	*init_parser(t_lexer *lexer)
 	return (parser);
 }
 
-int			expected_token(t_parser *parser, t_token_type type, t_ast *ast_cmp)
+int	expected_token(t_parser *parser, t_token_type type)
 {
 	if (parser->cur_token->type == type)
 	{
@@ -23,48 +36,21 @@ int			expected_token(t_parser *parser, t_token_type type, t_ast *ast_cmp)
 		parser->cur_token = lexer_get_next_token(parser->lexer);
 		return (0);
 	}
-	else if (parser->cur_token->type == TOKEN_SYN_ERR)
-	{
-		free_ast(ast_cmp);
-		printf("bash: syntax error: unexpected end of file\n");
-	}
-	else
-	{
-		free_ast(ast_cmp);
-		printf(
-			"bash: syntax error near unexpected token `%s'\n",
-			parser->cur_token->value
-			);
-	}
+	write(2, "bash: syntax error near unexpected token `", 42);
+	write(2, parser->cur_token->value, ft_strlen(parser->cur_token->value));
+	write(2, "'\n", 2);
 	return (1);
 }
 
-int			parser_expected_syn_err(t_parser *parser, t_ast *ast_cmp)
+int	parser_check_syn_error(t_parser *parser)
 {
-	if (parser->cur_token->type == TOKEN_PIPE ||
-		parser->cur_token->type == TOKEN_SEMI ||
-		parser->cur_token->type == TOKEN_SYN_ERR)
-		return (expected_token(parser, TOKEN_WORD, ast_cmp)); 
-	if (parser->cur_token->type == TOKEN_EOF)
-	{
-		free_ast(ast_cmp);
-		printf("bash: syntax error: unexpected end of file\n");
-		return (1);
-	}
+	if (parser->cur_token->type == TOKEN_PIPE
+		|| parser->cur_token->type == TOKEN_EOF)
+		return (expected_token(parser, TOKEN_WORD));
 	return (0);
 }
 
-int			detect_token(t_parser *parser)
-{
-	if (parser->cur_token->type == TOKEN_SEMI ||
-		parser->cur_token->type == TOKEN_PIPE ||
-		parser->cur_token->type == TOKEN_SYN_ERR ||
-		parser->cur_token->type == TOKEN_EOF)
-		return (1);
-	return (0);
-}
-
-void		*realloc_(void *old_alloc, size_t count, size_t old_size)
+void	*realloc_(void *old_alloc, size_t count, size_t old_size)
 {
 	void	*new_allo;
 
